@@ -20,5 +20,11 @@ A web application to track chess players’ profiles, stats, and recent games us
 
 1. Clone the repository:
 
+
+
+## Group Members:
+- 2021331058
+- 2021331094
+- 2021331070
 ```bash
 git clone https://github.com/yourusername/chess-tracker-dashboard.git
