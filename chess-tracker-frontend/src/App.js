@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ResponsiveContainer } from "recharts";
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
+import axios from 'axios'; // <-- AXIOS IMPORTED
 
 // --- THEME DEFINITIONS ---
 const THEMES = {
@@ -27,22 +28,16 @@ const THEMES = {
     },
 };
 
-// --- MOCK DATA FOR UI PREVIEW (Unchanged) ---
-const MOCK_PROFILE = { username: "wolvrox9", name: "AI Player", location: "Decentralized Node", joined: 1640995200, avatar: 'CYB', currentRating: 2785 }; 
-const MOCK_STATS = {
-    chess_blitz: { last: { rating: 2785 } },
-    chess_rapid: { last: { rating: 2650 } },
-    chess_bullet: { last: { rating: 2900 } },
-    wins: 145, losses: 35, draws: 20 
+// --- INITIAL DUMMY/MOCK DATA (Used for initial state before fetch) ---
+const INITIAL_PROFILE = { username: "Enter-ID", name: "Player Profile", location: "Unknown", joined: Date.now(), avatar: 'N/A', currentRating: 1200 }; 
+const INITIAL_STATS = {
+    chess_blitz: { last: { rating: 1200 } },
+    chess_rapid: { last: { rating: 1200 } },
+    chess_bullet: { last: { rating: 1200 } },
+    wins: 0, losses: 0, draws: 0
 };
-const MOCK_GAMES = [
-    { id: 1, white: { username: "wolvrox9", rating: 2785, result: "win" }, black: { username: "The_Matrix", rating: 2880, result: "loss" }, time_control: "3|0", end_time: Date.now() / 1000 },
-    { id: 2, white: { username: "SynthWave_GM", rating: 2880, result: "win" }, black: { username: "Cyber_Knight_77", rating: 2785, result: "loss" }, time_control: "10|0", end_time: (Date.now() / 1000) - 86400 },
-    { id: 3, white: { username: "Cyber_Knight_77", rating: 2785, result: "draw" }, black: { username: "VaporChess", rating: 2800, result: "draw" }, time_control: "5|0", end_time: (Date.now() / 1000) - 172800 },
-    { id: 4, white: { username: "Cyber_Knight_77", rating: 2785, result: "win" }, black: { username: "NeoGM", rating: 2800, result: "loss" }, time_control: "5|0", end_time: (Date.now() / 1000) - 259200 },
-    { id: 5, white: { username: "Future_Rook", rating: 2800, result: "win" }, black: { username: "Cyber_Knight_77", rating: 2785, result: "loss" }, time_control: "5|0", end_time: (Date.now() / 1000) - 345600 },
-];
-// --- END MOCK DATA ---
+const INITIAL_GAMES = [];
+// --- END INITIAL DATA ---
 
 // Animated Avatar/Badge Component
 const PlayerBadge = ({ username, rating, color = 'pink', theme }) => (
@@ -128,8 +123,8 @@ const ChessGame = ({ fen, safeGameMutate, restartGame, theme }) => {
         
         {/* === LEFT PANEL: AI & Stats (Col 1-3) === */}
         <div className="lg:col-span-3 space-y-6">
-            <PlayerBadge username={MOCK_PROFILE.username} rating={MOCK_PROFILE.currentRating} theme={theme} />
-            <EloPreview moveCount={moveCount} rating={MOCK_PROFILE.currentRating} theme={theme} />
+            <PlayerBadge username={INITIAL_PROFILE.username} rating={INITIAL_PROFILE.currentRating} theme={theme} />
+            <EloPreview moveCount={moveCount} rating={INITIAL_PROFILE.currentRating} theme={theme} />
             
             <div className="neo-flat-card p-5">
                 <h3 className="text-xl font-bold text-white mb-3">AI CONFIG</h3>
@@ -216,12 +211,12 @@ const ChessGame = ({ fen, safeGameMutate, restartGame, theme }) => {
 
 function App() {
     const [page, setPage] = useState("dashboard");
-    const [currentTheme, setCurrentTheme] = useState('vaporwave'); // New theme state
-    const theme = THEMES[currentTheme]; // Get current theme object
+    const [currentTheme, setCurrentTheme] = useState('vaporwave'); 
+    const theme = THEMES[currentTheme]; 
     const [username, setUsername] = useState("");
-    const [profile, setProfile] = useState(MOCK_PROFILE);
-    const [stats, setStats] = useState(MOCK_STATS);
-    const [games, setGames] = useState(MOCK_GAMES);
+    const [profile, setProfile] = useState(INITIAL_PROFILE); // Use initial state
+    const [stats, setStats] = useState(INITIAL_STATS);     // Use initial state
+    const [games, setGames] = useState(INITIAL_GAMES);     // Use initial state
 
     const [fen, setFen] = useState(new Chess().fen());
     const gameRef = useMemo(() => new Chess(), []);
@@ -267,11 +262,38 @@ function App() {
         }
     }, [fen, makeAiMove]);
 
-    const fetchData = async () => {
-        setProfile(MOCK_PROFILE);
-        setStats(MOCK_STATS);
-        setGames(MOCK_GAMES);
-    };
+    // **UPDATED: Function to fetch data from your local backend API**
+    const fetchData = useCallback(async () => {
+        if (!username) {
+            console.error("Please enter a username.");
+            return;
+        }
+
+        try {
+            console.log(`Fetching data for ${username} from local API...`);
+            // Fetch Profile Data
+            const profileRes = await axios.get(`http://localhost:5000/api/player/${username}`);
+            // Fetch Stats Data
+            const statsRes = await axios.get(`http://localhost:5000/api/player/${username}/stats`);
+            // Fetch Games Data
+            const gamesRes = await axios.get(`http://localhost:5000/api/player/${username}/games`);
+
+            setProfile(profileRes.data);
+            setStats(statsRes.data);
+            setGames(gamesRes.data);
+            
+            console.log("Data fetched successfully from local backend.");
+
+        } catch (err) {
+            console.error(err);
+            console.error("User not found or API failed. Check that your backend server is running on http://localhost:5000 and the user exists."); 
+            // Optional: reset to initial state on error
+            setProfile(INITIAL_PROFILE);
+            setStats(INITIAL_STATS);
+            setGames(INITIAL_GAMES);
+        }
+    }, [username]);
+
 
     const chartData = stats
         ? [
@@ -332,7 +354,7 @@ function App() {
                         <button 
                             onClick={fetchData} 
                             // Original classes in App.js
-className="bg-gradient-to-r from-green-400 to-cyan-500 hover:from-green-500 hover:to-cyan-600 text-gray-900 px-8 py-4 rounded-r-lg font-extrabold transition duration-300 transform hover:scale-[1.01] shadow-lg shadow-cyan-500/50 border-b-4 border-cyan-700"
+                            className="bg-gradient-to-r from-green-400 to-cyan-500 hover:from-green-500 hover:to-cyan-600 text-gray-900 px-8 py-4 rounded-r-lg font-extrabold transition duration-300 transform hover:scale-[1.01] shadow-lg shadow-cyan-500/50 border-b-4 border-cyan-700"
                         >
                             FETCH DATA &gt;&gt;
                         </button>
@@ -385,6 +407,7 @@ className="bg-gradient-to-r from-green-400 to-cyan-500 hover:from-green-500 hove
                         {/* Right Sidebar (Col 10-12) */}
                         <div className="lg:col-span-3">
                             {games.length > 0 && <LiveGameFeed games={games} theme={theme} />}
+                            {games.length === 0 && <div className="neo-flat-card p-5 h-[300px] text-center text-gray-500 pt-10">No recent game data found.</div>}
                         </div>
                     </div>
                 </div>
@@ -409,9 +432,7 @@ className="bg-gradient-to-r from-green-400 to-cyan-500 hover:from-green-500 hove
     );
 }
 
-// Reusable Components 
-
-// Reusable Stat Card Component
+// Reusable Components (Unchanged)
 const StatCard = ({ title, value, icon, color = 'text-white' }) => (
     <div className="neo-flat-card p-5 text-center transition duration-500 hover:scale-[1.05] shadow-md shadow-purple-900/50">
         <div className={`text-4xl mb-2 ${color}`}>{icon}</div>
@@ -420,10 +441,14 @@ const StatCard = ({ title, value, icon, color = 'text-white' }) => (
     </div>
 );
 
-// Score Bar Component (Colors are fixed for W/L/D, so minimal theme change is needed)
 const ScoreBar = ({ wins, losses, draws }) => {
     const total = wins + losses + draws;
-    if (total === 0) return null;
+    if (total === 0) return (
+        <div className="neo-flat-card p-5">
+            <h3 className="text-xl font-bold text-white mb-4 border-b border-purple-700 pb-2">WIN RATE INDEX</h3>
+            <p className="text-gray-500">No game data to calculate rate.</p>
+        </div>
+    );
 
     const winP = (wins / total) * 100;
     const lossP = (losses / total) * 100;
@@ -446,28 +471,38 @@ const ScoreBar = ({ wins, losses, draws }) => {
     );
 };
 
-// Live Game Feed Component
 const LiveGameFeed = ({ games, theme }) => (
     <div className="neo-flat-card p-5 h-[300px] overflow-y-auto">
         <h3 className={`text-2xl font-bold text-${theme.primary}-500 drop-shadow-neon-${theme.primary} mb-4 border-b border-${theme.primary}-700 pb-2 flex items-center`}>
             <span className="mr-2 animate-pulse">📡</span> LIVE NODE FEED
         </h3>
         <ul className="divide-y divide-gray-800">
-            {games.slice(0, 5).map((gameItem) => (
-                <li key={gameItem.id} className={`py-2 px-2 flex justify-between items-center transition duration-200 hover:bg-gray-800/70 rounded cursor-pointer border-l-2 border-transparent hover:border-${theme.primary}-500`}>
-                    <div className="flex-1 min-w-0 text-sm">
-                        <p className="font-semibold text-white">
-                            {gameItem.white.username} vs {gameItem.black.username}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1 font-mono">
-                            {gameItem.time_control}
-                        </p>
-                    </div>
-                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${gameItem.white.result === 'win' ? 'bg-green-600/30 text-green-400' : gameItem.black.result === 'win' ? 'bg-red-600/30 text-red-400' : 'bg-yellow-600/30 text-yellow-400'}`}>
-                        {gameItem.white.result.toUpperCase()}
-                    </span>
-                </li>
-            ))}
+            {games.slice(0, 5).map((gameItem, index) => {
+                // Determine result color based on the result property provided by your backend
+                const resultColor = 
+                    gameItem.result?.toLowerCase().includes('win') ? 'bg-green-600/30 text-green-400' : 
+                    gameItem.result?.toLowerCase().includes('draw') ? 'bg-yellow-600/30 text-yellow-400' : 
+                    'bg-red-600/30 text-red-400';
+                
+                const timeControl = gameItem.time_control || 'N/A';
+                const resultText = gameItem.result ? gameItem.result.toUpperCase() : 'UNKNOWN';
+
+                return (
+                    <li key={index} className={`py-2 px-2 flex justify-between items-center transition duration-200 hover:bg-gray-800/70 rounded cursor-pointer border-l-2 border-transparent hover:border-${theme.primary}-500`}>
+                        <div className="flex-1 min-w-0 text-sm">
+                            <p className="font-semibold text-white">
+                                {gameItem.white.username} vs {gameItem.black.username}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1 font-mono">
+                                {timeControl}
+                            </p>
+                        </div>
+                        <span className={`text-xs font-bold px-3 py-1 rounded-full ${resultColor}`}>
+                            {resultText}
+                        </span>
+                    </li>
+                );
+            })}
         </ul>
     </div>
 );
