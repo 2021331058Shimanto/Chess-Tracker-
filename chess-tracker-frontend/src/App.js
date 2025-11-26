@@ -1,318 +1,476 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
-import axios from "axios";
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ResponsiveContainer } from "recharts";
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
 
-// Helper function to determine the current state of the game
-const getGameStatus = (fen) => {
-  const game = new Chess(fen);
-  
-  if (game.isCheckmate()) {
-    const winner = game.turn() === 'w' ? 'Black' : 'White';
-    return <span className="text-red-600 font-bold">{winner} wins by Checkmate!</span>;
-  } 
-  if (game.isDraw()) {
-    return <span className="text-yellow-600 font-bold">Draw!</span>;
-  }
-  if (game.isStalemate()) {
-    return <span className="text-gray-600 font-bold">Stalemate!</span>;
-  }
-  if (game.isCheck()) {
-    const player = game.turn() === 'w' ? 'White' : 'Black';
-    return <span className="text-orange-500 font-bold">{player} is in Check!</span>;
-  }
-  
-  const turn = game.turn() === 'w' ? 'White' : 'Black';
-  return <span className="text-blue-600 font-bold">Current Turn: {turn}</span>;
+// --- THEME DEFINITIONS ---
+const THEMES = {
+    vaporwave: {
+        name: 'Vaporwave 🌃',
+        bg: 'bg-gray-950 background-noise',
+        primary: 'pink',
+        secondary: 'purple',
+        accent: 'cyan',
+        text: 'text-white',
+        cardShadow: 'shadow-purple-900/50',
+        titleGlow: 'title-glow-vapor',
+    },
+    cyberpunk: {
+        name: 'Cyberpunk 💾',
+        bg: 'bg-black background-circuit',
+        primary: 'lime',
+        secondary: 'red',
+        accent: 'blue',
+        text: 'text-gray-100',
+        cardShadow: 'shadow-red-700/50',
+        titleGlow: 'title-glow-cyber',
+    },
 };
 
-// Dedicated Chess Game Component
-const ChessGame = ({ fen, setFen, safeGameMutate, restartGame }) => {
-  
-  // Checks if a piece is allowed to be dragged (only white pieces on white's turn)
-  const allowDrag = (piece) => {
-    // Check if the current turn is white ('w')
-    const isPlayerTurn = new Chess(fen).turn() === 'w';
-    // Check if the piece being dragged is a white piece ('w')
-    const isPlayerPiece = piece.search(/w/) !== -1;
+// --- MOCK DATA FOR UI PREVIEW (Unchanged) ---
+const MOCK_PROFILE = { username: "wolvrox9", name: "AI Player", location: "Decentralized Node", joined: 1640995200, avatar: 'CYB', currentRating: 2785 }; 
+const MOCK_STATS = {
+    chess_blitz: { last: { rating: 2785 } },
+    chess_rapid: { last: { rating: 2650 } },
+    chess_bullet: { last: { rating: 2900 } },
+    wins: 145, losses: 35, draws: 20 
+};
+const MOCK_GAMES = [
+    { id: 1, white: { username: "wolvrox9", rating: 2785, result: "win" }, black: { username: "The_Matrix", rating: 2880, result: "loss" }, time_control: "3|0", end_time: Date.now() / 1000 },
+    { id: 2, white: { username: "SynthWave_GM", rating: 2880, result: "win" }, black: { username: "Cyber_Knight_77", rating: 2785, result: "loss" }, time_control: "10|0", end_time: (Date.now() / 1000) - 86400 },
+    { id: 3, white: { username: "Cyber_Knight_77", rating: 2785, result: "draw" }, black: { username: "VaporChess", rating: 2800, result: "draw" }, time_control: "5|0", end_time: (Date.now() / 1000) - 172800 },
+    { id: 4, white: { username: "Cyber_Knight_77", rating: 2785, result: "win" }, black: { username: "NeoGM", rating: 2800, result: "loss" }, time_control: "5|0", end_time: (Date.now() / 1000) - 259200 },
+    { id: 5, white: { username: "Future_Rook", rating: 2800, result: "win" }, black: { username: "Cyber_Knight_77", rating: 2785, result: "loss" }, time_control: "5|0", end_time: (Date.now() / 1000) - 345600 },
+];
+// --- END MOCK DATA ---
 
-    return isPlayerTurn && isPlayerPiece;
-  };
-
-  // Handles the successful drop of a chess piece (Player move)
-  const onDrop = (source, target) => {
-    console.log(`Attempting move: ${source} to ${target}`);
-
-    // Attempt the player's move using safeGameMutate
-    const moveResult = safeGameMutate((game) => {
-      // Use 'q' for automatic queen promotion as a standard default
-      return game.move({ from: source, to: target, promotion: "q" });
-    });
-
-    // If move was illegal, return false to trigger piece snapback
-    if (!moveResult) return false;
-
-    // The AI move is now handled by the useEffect hook watching the FEN.
-    
-    // Return true if the move was successful
-    return true;
-  };
-
-  // Determine board size based on window dimensions for responsiveness
-  const boardSize = Math.min(
-    window.innerWidth * 0.9, 
-    window.innerHeight * 0.8,
-    450 // Max size limit
-  );
-
-  return (
-    <div className="flex flex-col items-center justify-start pt-8 w-full">
-      
-      {/* Game Status Display */}
-      <div className="mb-4 text-xl font-semibold p-2 bg-white rounded-lg shadow-md border border-gray-200">
-        {getGameStatus(fen)}
-      </div>
-
-      {/* Container with high z-index to ensure it sits on top of any potential blockers */}
-      <div 
-        style={{ cursor: 'pointer', userSelect: 'none', touchAction: 'none' }} // Aggressive CSS Fixes
-        className="relative z-20 w-full max-w-sm p-4 bg-white rounded-xl shadow-2xl border-4 border-gray-400"
-      >
-        <Chessboard 
-          id="PlayBoard" 
-          position={fen} 
-          onPieceDrop={onDrop} 
-          boardWidth={boardSize} 
-          arePiecesDraggable={true} 
-          boardOrientation="white" 
-          allowDrag={allowDrag} // Enables the initial drag check
-        />
-      </div>
-      
-      <button
-        onClick={restartGame}
-        className="mt-8 px-8 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-full shadow-lg transition duration-200 transform hover:scale-105"
-      >
-        Restart Game
-      </button>
+// Animated Avatar/Badge Component
+const PlayerBadge = ({ username, rating, color = 'pink', theme }) => (
+    <div className={`p-4 rounded-xl border-2 border-${theme.primary}-400 shadow-xl shadow-${theme.primary}-800/50 flex flex-col items-center bg-gray-900/80 transition duration-300 hover:scale-[1.05] card-glitch`}>
+        <div className={`text-4xl font-extrabold p-3 rounded-full mb-2 bg-${theme.primary}-500 text-black border-4 border-${theme.primary}-300 pulse-glow`}>
+            {username.slice(0, 3).toUpperCase()}
+        </div>
+        <div className="text-xl font-bold text-white tracking-wider">{username}</div>
+        <div className={`text-sm font-mono text-${theme.primary}-400`}>ELO: {rating}</div>
     </div>
-  );
+);
+
+// New: Elo Change Preview
+const EloPreview = ({ moveCount, rating, theme }) => {
+    const change = moveCount > 10 ? '+8' : moveCount > 5 ? '+4' : '±0';
+    const color = change.includes('+') ? 'text-green-400 drop-shadow-neon-green' : 'text-gray-400';
+
+    return (
+        <div className="w-full neo-flat-card p-4 text-center">
+            <h3 className="text-xl font-bold text-white mb-2">PROJECTED ELO CHANGE</h3>
+            <div className={`text-5xl font-extrabold ${color} animate-bounce`}>
+                {change}
+            </div>
+            <p className="text-sm text-gray-500">Current Blitz ELO: {rating}</p>
+        </div>
+    );
+};
+
+// Helper function to determine the current state of the game
+const getGameStatus = (fen, theme) => {
+    const game = new Chess(fen);
+    
+    // Theme-specific colors for status
+    const colors = {
+        checkmate: `text-red-400 drop-shadow-neon-red`,
+        draw: `text-yellow-300 drop-shadow-neon-yellow`,
+        stalemate: "text-gray-400",
+        check: `text-orange-400 drop-shadow-neon-orange`,
+        turn: `text-${theme.primary}-400 drop-shadow-neon-${theme.primary}`,
+    };
+    
+    if (game.isCheckmate()) return <span className={`${colors.checkmate} font-bold`}>TERMINATED: CHECKMATE</span>;
+    if (game.isDraw() || game.isStalemate()) return <span className={`${colors.draw} font-bold`}>DRAW STATE REACHED</span>;
+    if (game.isCheck()) return <span className={`${colors.check} font-bold`}>SYSTEM WARNING: CHECK!</span>;
+    
+    const turn = game.turn() === 'w' ? 'WHITE (PLAYER)' : 'BLACK (AI)';
+    return <span className={`${colors.turn} font-bold`}>TURN: {turn}</span>;
+};
+
+// Dedicated Chess Game Component (Vaporwave/Dynamic Layout)
+const ChessGame = ({ fen, safeGameMutate, restartGame, theme }) => {
+    const [difficulty, setDifficulty] = useState('Intermediate');
+    const [moveHistory, setMoveHistory] = useState([]);
+
+    useEffect(() => {
+        const game = new Chess(fen);
+        setMoveHistory(game.history({ verbose: true })); 
+    }, [fen]);
+    
+    const allowDrag = (piece) => {
+      const isPlayerTurn = new Chess(fen).turn() === 'w';
+      const isPlayerPiece = piece.search(/w/) !== -1;
+      return isPlayerTurn && isPlayerPiece;
+    };
+
+    const onDrop = (source, target) => {
+      const moveResult = safeGameMutate((game) => {
+        return game.move({ from: source, to: target, promotion: "q" });
+      });
+      return moveResult ? true : false;
+    };
+
+    const boardSize = Math.min(
+      window.innerWidth * 0.9, 
+      window.innerHeight * 0.8,
+      400 
+    );
+    
+    const moveCount = moveHistory.length;
+
+    return (
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 pt-6">
+        
+        {/* === LEFT PANEL: AI & Stats (Col 1-3) === */}
+        <div className="lg:col-span-3 space-y-6">
+            <PlayerBadge username={MOCK_PROFILE.username} rating={MOCK_PROFILE.currentRating} theme={theme} />
+            <EloPreview moveCount={moveCount} rating={MOCK_PROFILE.currentRating} theme={theme} />
+            
+            <div className="neo-flat-card p-5">
+                <h3 className="text-xl font-bold text-white mb-3">AI CONFIG</h3>
+                <label className="text-gray-400 text-sm">SET DEPTH LEVEL:</label>
+                <select 
+                    value={difficulty} 
+                    onChange={(e) => setDifficulty(e.target.value)} 
+                    className={`w-full bg-gray-800/50 border border-${theme.secondary}-500/50 p-3 rounded-lg text-white font-mono focus:ring-${theme.secondary}-500 focus:border-${theme.secondary}-500 transition duration-300 shadow-inner mt-1`}
+                >
+                    {['Easy (Depth 2)', 'Intermediate (Depth 6)', 'Hard (Depth 12)', 'Grandmaster (Depth 20)'].map(level => (
+                        <option key={level} value={level}>{level}</option>
+                    ))}
+                </select>
+                <button 
+                    className={`mt-4 w-full px-4 py-2 bg-gradient-to-r from-${theme.secondary}-600 to-${theme.primary}-600 text-white font-bold rounded-full transform hover:scale-[1.02] active:scale-[0.98] transition duration-300 glow-button`}
+                >
+                    INITIATE MATCH
+                </button>
+            </div>
+            
+            {/* Real-time Game Info */}
+            <div className="neo-flat-card p-5">
+                <h3 className="text-xl font-bold text-white mb-3">GAME DATA</h3>
+                <p className="text-gray-400 text-sm"><span className={`text-${theme.primary}-400`}>Time Ctrl:</span> Blitz 3|0</p>
+                <p className="text-gray-400 text-sm"><span className={`text-${theme.primary}-400`}>Total Moves:</span> {Math.ceil(moveCount / 2)}</p>
+                <p className="text-gray-400 text-sm"><span className={`text-${theme.primary}-400`}>AI Depth:</span> {difficulty.split('(')[1]?.replace(')', '').trim()}</p>
+            </div>
+        </div>
+
+        {/* === CENTER PANEL: Board & Status (Col 4-9) === */}
+        <div className="lg:col-span-6 flex flex-col items-center space-y-6">
+            <div className="w-full text-center">
+                <div className={`text-2xl font-extrabold p-3 rounded-xl bg-gray-900/90 text-white border-b-4 border-${theme.primary}-500 shadow-xl shadow-${theme.primary}-900/50 text-glow-${theme.primary}`}>
+                    {getGameStatus(fen, theme)}
+                </div>
+            </div>
+
+            {/* Chessboard Container - HOLOGRAPHIC FRAME */}
+            <div 
+                style={{ cursor: 'pointer', userSelect: 'none', touchAction: 'none' }} 
+                className={`relative z-20 w-full max-w-[500px] p-2 bg-gradient-to-br from-${theme.secondary}-900 to-black rounded-3xl holographic-frame shadow-holographic transition-all duration-500 hover:scale-[1.01]`}
+            >
+                <Chessboard 
+                    id="PlayBoard" 
+                    position={fen} 
+                    onPieceDrop={onDrop} 
+                    boardWidth={boardSize} 
+                    arePiecesDraggable={true} 
+                    boardOrientation="white" 
+                    allowDrag={allowDrag}
+                    // Add cool square/piece styles if desired (omitted here for simplicity)
+                />
+            </div>
+            
+            <button
+                onClick={restartGame}
+                className="mt-4 px-12 py-3 bg-red-600 hover:bg-red-700 text-white font-extrabold rounded-full transition duration-300 transform hover:scale-105 active:scale-95 shadow-xl shadow-red-700/50 border-b-4 border-red-800 button-glitch"
+            >
+                REBOOT MATCH 💾
+            </button>
+        </div>
+
+        {/* === RIGHT PANEL: History (Col 10-12) === */}
+        <div className="lg:col-span-3">
+            <div className="neo-flat-card p-5 h-[500px] overflow-y-auto">
+                <h3 className="text-xl font-bold text-white mb-4 border-b border-pink-500 pb-2">MOVE DATA LOG</h3>
+                <ol className="text-sm space-y-1 divide-y divide-gray-800">
+                    {moveHistory.map((move, index) => (
+                        <li key={index} className="flex py-1 px-1 transition duration-150 hover:bg-gray-800/50 rounded text-gray-400 hover:text-white font-mono text-sm">
+                            <span className={`w-8 text-${theme.primary}-400 mr-2`}>{Math.floor(index / 2) + 1}.</span>
+                            <span className={`flex-1 ${index % 2 === 0 ? 'text-white' : 'text-gray-400'}`}>
+                                {move.san}
+                            </span>
+                        </li>
+                    ))}
+                    {moveHistory.length === 0 && <p className="text-gray-500 italic text-center pt-10">Waiting for first command...</p>}
+                </ol>
+            </div>
+        </div>
+      </div>
+    );
 };
 
 
 function App() {
-  const [page, setPage] = useState("dashboard");
-  const [username, setUsername] = useState("");
-  const [profile, setProfile] = useState(null);
-  const [stats, setStats] = useState(null);
-  const [games, setGames] = useState([]);
+    const [page, setPage] = useState("dashboard");
+    const [currentTheme, setCurrentTheme] = useState('vaporwave'); // New theme state
+    const theme = THEMES[currentTheme]; // Get current theme object
+    const [username, setUsername] = useState("");
+    const [profile, setProfile] = useState(MOCK_PROFILE);
+    const [stats, setStats] = useState(MOCK_STATS);
+    const [games, setGames] = useState(MOCK_GAMES);
 
-  // Use FEN string to control the Chessboard component, which is the most reliable method
-  const [fen, setFen] = useState(new Chess().fen());
+    const [fen, setFen] = useState(new Chess().fen());
+    const gameRef = useMemo(() => new Chess(), []);
 
-  // Use useMemo to hold the reference to the game object for logic
-  const gameRef = useMemo(() => new Chess(), []);
+    const toggleTheme = () => {
+        setCurrentTheme(prev => prev === 'vaporwave' ? 'cyberpunk' : 'vaporwave');
+    };
 
-  // Reset the FEN and the game reference object
-  const restartGame = useCallback(() => {
-    gameRef.reset();
-    setFen(gameRef.fen());
-  }, [gameRef]);
+    const restartGame = useCallback(() => {
+        gameRef.reset();
+        setFen(gameRef.fen());
+    }, [gameRef]);
 
-  // Helper function to safely apply a move and update the FEN
-  const safeGameMutate = useCallback((modify) => {
-    const tempGame = new Chess(fen);
-    
-    // Apply the modification function (the move)
-    const result = modify(tempGame);
+    const safeGameMutate = useCallback((modify) => {
+        const tempGame = new Chess(fen);
+        const result = modify(tempGame);
 
-    // If the modification was successful, update the FEN state
-    if (result) {
-      setFen(tempGame.fen());
-    }
-    
-    return result;
-  }, [fen]);
+        if (result) {
+            setFen(tempGame.fen());
+        }
+        return result;
+    }, [fen]);
 
-  const makeAiMove = useCallback(() => {
-    const tempGame = new Chess(fen);
-    
-    // 1. Check if game is over
-    if (tempGame.isGameOver()) return; 
-    
-    // 2. CRITICAL CHECK: Ensure it is Black's turn before the AI moves
-    if (tempGame.turn() !== 'b') return; // AI plays black
-    
-    const moves = tempGame.moves();
-    if (moves.length === 0) return;
-    
-    const randomMove = moves[Math.floor(Math.random() * moves.length)];
+    const makeAiMove = useCallback(() => {
+        const tempGame = new Chess(fen);
+        if (tempGame.isGameOver() || tempGame.turn() !== 'b') return; 
+        
+        const moves = tempGame.moves();
+        if (moves.length === 0) return;
+        const randomMove = moves[Math.floor(Math.random() * moves.length)];
 
-    // Apply the AI's move using safeGameMutate
-    safeGameMutate((game) => {
-      game.move(randomMove);
-      return true; // Indicate success
-    });
-  }, [fen, safeGameMutate]);
+        safeGameMutate((game) => {
+            game.move(randomMove);
+            return true;
+        });
+    }, [fen, safeGameMutate]);
 
-  // CRITICAL FIX: Use useEffect to trigger the AI move ONLY when FEN changes and it's Black's turn.
-  useEffect(() => {
-    const tempGame = new Chess(fen);
-    
-    // Only proceed if it is Black's turn and the game is not over
-    if (tempGame.turn() === 'b' && !tempGame.isGameOver()) {
-      // Set a short delay for the AI move for better user experience
-      const timer = setTimeout(makeAiMove, 500); 
-      return () => clearTimeout(timer); // Cleanup function to prevent multiple calls
-    }
-  }, [fen, makeAiMove]);
+    useEffect(() => {
+        const tempGame = new Chess(fen);
+        if (tempGame.turn() === 'b' && !tempGame.isGameOver()) {
+            const timer = setTimeout(makeAiMove, 500); 
+            return () => clearTimeout(timer);
+        }
+    }, [fen, makeAiMove]);
 
+    const fetchData = async () => {
+        setProfile(MOCK_PROFILE);
+        setStats(MOCK_STATS);
+        setGames(MOCK_GAMES);
+    };
 
-  // Fetch user data
-  const fetchData = async () => {
-    // NOTE: Using localhost:5000 will not work in this environment. 
-    try {
-      const profileRes = await axios.get(`http://localhost:5000/api/player/${username}`);
-      const statsRes = await axios.get(`http://localhost:5000/api/player/${username}/stats`);
-      const gamesRes = await axios.get(`http://localhost:5000/api/player/${username}/games`);
+    const chartData = stats
+        ? [
+            { name: "Bullet", "ELO Score": stats.chess_bullet?.last?.rating || 0 },
+            { name: "Blitz", "ELO Score": stats.chess_blitz?.last?.rating || 0 },
+            { name: "Rapid", "ELO Score": stats.chess_rapid?.last?.rating || 0 },
+          ]
+        : [];
 
-      setProfile(profileRes.data);
-      setStats(statsRes.data);
-      setGames(gamesRes.data);
-    } catch (err) {
-      console.error(err);
-      console.error("User not found or API failed. Check that your backend server is running."); 
-    }
-  };
+    return (
+        // Apply theme background classes here
+        <div className={`min-h-screen font-sans ${theme.bg} ${theme.text} p-6 md:p-10`}>
+            <header className="max-w-7xl mx-auto mb-10">
+                <div className="flex justify-between items-center pb-3 border-b-4 border-purple-500/50">
+                    <h1 className={`text-5xl font-extrabold tracking-widest uppercase ${theme.titleGlow}`}>
+                        <span className={`text-${theme.primary}-500 drop-shadow-neon-${theme.primary} mr-2`}>C H E S S</span> T R A C K E R
+                    </h1>
+                    <button
+                        onClick={toggleTheme}
+                        className={`px-4 py-2 bg-gray-800/70 text-${theme.accent}-400 font-bold rounded-full transition duration-300 border-2 border-${theme.accent}-500 hover:scale-[1.05] shadow-lg shadow-${theme.accent}-900/50`}
+                    >
+                        {theme.name}
+                    </button>
+                </div>
 
-  // Prepare chart data
-  const chartData = stats
-    ? [
-        { name: "Blitz", rating: stats.chess_blitz?.last?.rating || 0 },
-        { name: "Rapid", rating: stats.chess_rapid?.last?.rating || 0 },
-        { name: "Bullet", rating: stats.chess_bullet?.last?.rating || 0 },
-      ]
-    : [];
+                {/* Navigation Tabs - Flat, high-contrast pills */}
+                <div className="flex justify-center mt-6 p-2 bg-gray-900/50 rounded-full shadow-inner shadow-purple-900 max-w-lg mx-auto">
+                    <button
+                        onClick={() => setPage("dashboard")}
+                        className={`flex-1 px-8 py-3 font-bold rounded-full text-lg transition duration-300 transform hover:scale-[1.02] ${
+                            page === "dashboard" ? `bg-gradient-to-r from-${theme.primary}-500 to-${theme.secondary}-600 text-white shadow-lg shadow-${theme.primary}-600/50` : "text-gray-300 hover:bg-gray-700/50"
+                        }`}
+                    >
+                        DASHBOARD
+                    </button>
+                    <button
+                        onClick={() => setPage("play")}
+                        className={`flex-1 px-8 py-3 font-bold rounded-full text-lg transition duration-300 transform hover:scale-[1.02] ${
+                            page === "play" ? `bg-gradient-to-r from-${theme.primary}-500 to-${theme.secondary}-600 text-white shadow-lg shadow-${theme.primary}-600/50` : "text-gray-300 hover:bg-gray-700/50"
+                        }`}
+                    >
+                        PLAY MODE
+                    </button>
+                </div>
+            </header>
 
-  return (
-    <div className="bg-gray-100 p-8 font-sans">
-      <h1 className="text-3xl font-extrabold mb-6 text-gray-800 border-b pb-2">
-        <span className="text-blue-600">Chess</span> Tracker
-      </h1>
+            {page === "dashboard" && (
+                <div className="max-w-7xl mx-auto space-y-10">
+                    {/* Top Control Panel */}
+                    <div className={`flex justify-center items-center p-6 neo-flat-card shadow-lg ${theme.cardShadow}`}>
+                        <input
+                            type="text"
+                            placeholder="ENTER HASH KEY OR USER ID"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            className={`border border-${theme.secondary}-600 p-4 rounded-l-lg flex-grow max-w-lg text-lg focus:ring-${theme.primary}-500 focus:border-${theme.primary}-500 bg-gray-800/70 text-white placeholder-gray-500 outline-none font-mono tracking-wider`}
+                        />
+                        <button 
+                            onClick={fetchData} 
+                            // Original classes in App.js
+className="bg-gradient-to-r from-green-400 to-cyan-500 hover:from-green-500 hover:to-cyan-600 text-gray-900 px-8 py-4 rounded-r-lg font-extrabold transition duration-300 transform hover:scale-[1.01] shadow-lg shadow-cyan-500/50 border-b-4 border-cyan-700"
+                        >
+                            FETCH DATA &gt;&gt;
+                        </button>
+                    </div>
 
-      {/* Page Switch Buttons */}
-      <div className="mb-8 space-x-3 flex justify-center">
-        <button
-          onClick={() => setPage("dashboard")}
-          className={`px-6 py-2 rounded-full font-medium transition-colors duration-200 shadow-md ${
-            page === "dashboard" ? "bg-blue-600 text-white shadow-blue-400/50" : "bg-white text-gray-700 hover:bg-gray-100"
-          }`}
-        >
-          Dashboard
-        </button>
-        <button
-          onClick={() => setPage("play")}
-          className={`px-6 py-2 rounded-full font-medium transition-colors duration-200 shadow-md ${
-            page === "play" ? "bg-blue-600 text-white shadow-blue-400/50" : "bg-white text-gray-700 hover:bg-gray-100"
-          }`}
-        >
-          Play Chess
-        </button>
-      </div>
+                    {/* Main Dashboard Layout (3-Column Grid) */}
+                    <div className="grid lg:grid-cols-12 gap-8">
+                        
+                        {/* Left Sidebar (Col 1-3) */}
+                        <div className="lg:col-span-3 space-y-6">
+                            <PlayerBadge username={profile.username} rating={profile.currentRating} theme={theme} />
+                            <ScoreBar wins={stats.wins} losses={stats.losses} draws={stats.draws} />
+                        </div>
 
-      {page === "dashboard" && (
-        <div className="max-w-4xl mx-auto">
-          {/* Username input */}
-          <div className="mb-6 flex justify-center items-center p-4 bg-white rounded-xl shadow-lg">
-            <input
-              type="text"
-              placeholder="Enter Chess.com username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="border border-gray-300 p-3 rounded-l-lg flex-grow max-w-sm focus:ring-blue-500 focus:border-blue-500"
-            />
-            <button 
-              onClick={fetchData} 
-              className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-r-lg font-semibold transition duration-200"
-            >
-              Fetch Data
-            </button>
-          </div>
+                        {/* Middle Section (Col 4-9) */}
+                        <div className="lg:col-span-6 space-y-6">
+                            {/* Stats Overview */}
+                            <div className="grid grid-cols-3 gap-4">
+                                {stats && (
+                                    <>
+                                    <StatCard title="Bullet Max" value={stats.chess_bullet?.last?.rating || 'N/A'} icon="⚡" color={`text-${theme.primary}-400`} />
+                                    <StatCard title="Blitz Max" value={stats.chess_blitz?.last?.rating || 'N/A'} icon="⏱️" color={`text-${theme.secondary}-400`} />
+                                    <StatCard title="Rapid Max" value={stats.chess_rapid?.last?.rating || 'N/A'} icon="⏳" color={`text-${theme.accent}-400`} />
+                                    </>
+                                )}
+                            </div>
 
-          {/* Profile & Stats */}
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Profile */}
-            {profile && (
-              <div className="bg-white p-6 rounded-xl shadow-xl border-t-4 border-blue-500">
-                <h2 className="text-2xl font-bold mb-3 text-gray-800">Profile</h2>
-                <p><strong className="text-gray-600">Username:</strong> {profile.username}</p>
-                <p><strong className="text-gray-600">Name:</strong> {profile.name || "N/A"}</p>
-                <p><strong className="text-gray-600">Location:</strong> {profile.location || "N/A"}</p>
-                <p><strong className="text-gray-600">Joined:</strong> {new Date(profile.joined * 1000).toLocaleDateString()}</p>
-              </div>
+                            {/* Ratings Chart */}
+                            {stats && (
+                                <div className={`neo-flat-card p-6 shadow-xl ${theme.cardShadow}`}>
+                                    <h2 className={`text-2xl font-extrabold mb-4 text-${theme.primary}-400 border-b border-${theme.secondary}-700 pb-2`}>ELO SCORING TREND</h2>
+                                    <ResponsiveContainer width="100%" height={300}>
+                                        <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 5 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#5a5a70" />
+                                            <XAxis dataKey="name" stroke="#a0aec0" tick={{ fill: '#fff' }} />
+                                            <YAxis stroke="#a0aec0" domain={['auto', 'auto']} tick={{ fill: '#fff' }} />
+                                            <Tooltip 
+                                                contentStyle={{ borderRadius: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.7)', background: '#1a1a2e', border: `1px solid ${theme.primary === 'pink' ? '#d8b4fe' : '#34d399'}` }} 
+                                                itemStyle={{ color: `#${theme.primary === 'pink' ? 'd8b4fe' : '34d399'}`, fontWeight: 'bold' }} 
+                                                labelStyle={{ color: '#fff' }} 
+                                            />
+                                            <Legend />
+                                            <Line type="monotone" dataKey="ELO Score" stroke={`#${theme.primary === 'pink' ? 'f472b6' : 'a3e635'}`} strokeWidth={5} dot={{ r: 6, fill: `#${theme.primary === 'pink' ? 'f472b6' : 'a3e635'}` }} activeDot={{ r: 10, stroke: '#fff', strokeWidth: 3 }} />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Right Sidebar (Col 10-12) */}
+                        <div className="lg:col-span-3">
+                            {games.length > 0 && <LiveGameFeed games={games} theme={theme} />}
+                        </div>
+                    </div>
+                </div>
             )}
 
-            {/* Ratings Chart */}
-            {stats && (
-              <div className="bg-white p-6 rounded-xl shadow-xl border-t-4 border-purple-500">
-                <h2 className="text-2xl font-bold mb-3 text-gray-800">Ratings Trend</h2>
-                <ResponsiveContainer width="100%" height={250}>
-                  <LineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                    <XAxis dataKey="name" stroke="#6b7280" />
-                    <YAxis stroke="#6b7280" domain={['auto', 'auto']} />
-                    <Tooltip contentStyle={{ borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                    <Legend />
-                    <Line type="monotone" dataKey="rating" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 8 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+            {page === "play" && (
+                <ChessGame 
+                    fen={fen} 
+                    safeGameMutate={safeGameMutate} 
+                    restartGame={restartGame} 
+                    theme={theme}
+                />
             )}
-          </div>
-          
-          {/* Recent Games */}
-          {games.length > 0 && (
-            <div className="bg-white p-6 rounded-xl shadow-xl mt-6 border-t-4 border-yellow-500">
-              <h2 className="text-2xl font-bold mb-4 text-gray-800">Recent Games</h2>
-              <div className="overflow-x-auto">
-                <ul className="divide-y divide-gray-200">
-                  {games.slice(0, 10).map((gameItem, idx) => (
-                    <li key={idx} className="py-3 flex justify-between items-center hover:bg-gray-50 transition duration-150 rounded-md px-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-700">
-                          {gameItem.white.username} ({gameItem.white.rating}) vs {gameItem.black.username} ({gameItem.black.rating})
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          Result: <span className={`font-medium ${gameItem.white.result === 'win' ? 'text-green-600' : gameItem.black.result === 'win' ? 'text-red-600' : 'text-gray-500'}`}>
-                            {gameItem.white.result}
-                          </span>
-                          , Time Control: {gameItem.time_control}
-                        </p>
-                      </div>
-                      <span className="text-xs text-gray-400 ml-4">
-                        {new Date(gameItem.end_time * 1000).toLocaleDateString()}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          )}
+            
+            {/* System Status Footer (New Component) */}
+            <footer className={`fixed bottom-0 left-0 right-0 p-3 bg-gray-900/90 border-t border-${theme.secondary}-500/50 flex justify-center text-sm font-mono system-status-bar`}>
+                <span className="text-green-400 mr-4">STATUS: ONLINE</span>
+                <span className="text-gray-500 mr-4">LATENCY: 40ms</span>
+                <span className={`text-${theme.primary}-400`}>VERSION: CHESS_TRACKER_V1.1.2</span>
+            </footer>
         </div>
-      )}
-
-      {page === "play" && (
-        <ChessGame 
-          fen={fen} 
-          setFen={setFen} 
-          safeGameMutate={safeGameMutate} 
-          // Removed makeAiMove prop as it's now handled by useEffect
-          restartGame={restartGame} 
-        />
-      )}
-    </div>
-  );
+    );
 }
+
+// Reusable Components 
+
+// Reusable Stat Card Component
+const StatCard = ({ title, value, icon, color = 'text-white' }) => (
+    <div className="neo-flat-card p-5 text-center transition duration-500 hover:scale-[1.05] shadow-md shadow-purple-900/50">
+        <div className={`text-4xl mb-2 ${color}`}>{icon}</div>
+        <div className="text-sm uppercase text-gray-400 font-semibold tracking-wider">{title}</div>
+        <div className="text-3xl font-extrabold text-white text-glow-pink mt-1">{value}</div>
+    </div>
+);
+
+// Score Bar Component (Colors are fixed for W/L/D, so minimal theme change is needed)
+const ScoreBar = ({ wins, losses, draws }) => {
+    const total = wins + losses + draws;
+    if (total === 0) return null;
+
+    const winP = (wins / total) * 100;
+    const lossP = (losses / total) * 100;
+    const drawP = (draws / total) * 100;
+
+    return (
+        <div className="neo-flat-card p-5">
+            <h3 className="text-xl font-bold text-white mb-4 border-b border-purple-700 pb-2">WIN RATE INDEX</h3>
+            <div className="flex justify-between text-sm text-gray-400 mb-2 font-mono">
+                <span className="text-green-400">WINS: {wins}</span>
+                <span className="text-yellow-400">DRAWS: {draws}</span>
+                <span className="text-red-400">LOSSES: {losses}</span>
+            </div>
+            <div className="score-bar-genz flex">
+                <div style={{ width: `${winP}%` }} className="win-segment" title={`Wins: ${wins}`}></div>
+                <div style={{ width: `${drawP}%` }} className="draw-segment" title={`Draws: ${draws}`}></div>
+                <div style={{ width: `${lossP}%` }} className="loss-segment" title={`Losses: ${losses}`}></div>
+            </div>
+        </div>
+    );
+};
+
+// Live Game Feed Component
+const LiveGameFeed = ({ games, theme }) => (
+    <div className="neo-flat-card p-5 h-[300px] overflow-y-auto">
+        <h3 className={`text-2xl font-bold text-${theme.primary}-500 drop-shadow-neon-${theme.primary} mb-4 border-b border-${theme.primary}-700 pb-2 flex items-center`}>
+            <span className="mr-2 animate-pulse">📡</span> LIVE NODE FEED
+        </h3>
+        <ul className="divide-y divide-gray-800">
+            {games.slice(0, 5).map((gameItem) => (
+                <li key={gameItem.id} className={`py-2 px-2 flex justify-between items-center transition duration-200 hover:bg-gray-800/70 rounded cursor-pointer border-l-2 border-transparent hover:border-${theme.primary}-500`}>
+                    <div className="flex-1 min-w-0 text-sm">
+                        <p className="font-semibold text-white">
+                            {gameItem.white.username} vs {gameItem.black.username}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1 font-mono">
+                            {gameItem.time_control}
+                        </p>
+                    </div>
+                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${gameItem.white.result === 'win' ? 'bg-green-600/30 text-green-400' : gameItem.black.result === 'win' ? 'bg-red-600/30 text-red-400' : 'bg-yellow-600/30 text-yellow-400'}`}>
+                        {gameItem.white.result.toUpperCase()}
+                    </span>
+                </li>
+            ))}
+        </ul>
+    </div>
+);
+
 
 export default App;
