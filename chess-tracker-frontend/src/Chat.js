@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 
 // Simple chat component that polls the backend for messages and posts new ones.
 // Usage: import Chat from './Chat' and render <Chat backendUrl="http://localhost:5000" />
-
+// chat box frontend
 export default function Chat({ backendUrl = '' }) {
   const [messages, setMessages] = useState([]);
   const [username, setUsername] = useState('Anonymous');
@@ -90,3 +90,4 @@ export default function Chat({ backendUrl = '' }) {
     </div>
   );
 }
+
