@@ -5,7 +5,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = process.env.CHAT_PORT || 6001;
+const PORT = process.env.CHAT_PORT || 6002;
 
 const messages = [];
 
@@ -22,3 +22,4 @@ app.post('/messages', (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Chat server running on port ${PORT}`));
+
