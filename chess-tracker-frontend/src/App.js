@@ -3,6 +3,8 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Responsi
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
 import axios from 'axios'; // <-- AXIOS IMPORTED
+import Login from './Login';
+import PlayerDashboard from './PlayerDashboard';
 
 // --- THEME DEFINITIONS ---
 const THEMES = {
@@ -211,6 +213,8 @@ const ChessGame = ({ fen, safeGameMutate, restartGame, theme }) => {
 
 function App() {
     const [page, setPage] = useState("dashboard");
+    const [authToken, setAuthToken] = useState(localStorage.getItem('tt_token') || null);
+    const [authUser, setAuthUser] = useState(null);
     const [currentTheme, setCurrentTheme] = useState('vaporwave'); 
     const theme = THEMES[currentTheme]; 
     const [username, setUsername] = useState("");
@@ -223,6 +227,34 @@ function App() {
 
     const toggleTheme = () => {
         setCurrentTheme(prev => prev === 'vaporwave' ? 'cyberpunk' : 'vaporwave');
+    };
+
+    useEffect(() => {
+        if (!authToken) return;
+        const load = async () => {
+            try {
+                const res = await axios.get('http://localhost:5000/api/auth/me', { headers: { Authorization: `Bearer ${authToken}` } });
+                setAuthUser(res.data);
+                // set username default to profile username for convenience
+                setUsername(res.data.username);
+            } catch (err) {
+                console.error('Failed to load auth user', err);
+                setAuthToken(null);
+                localStorage.removeItem('tt_token');
+            }
+        };
+        load();
+    }, [authToken]);
+
+    const onAuth = (token, user) => {
+        setAuthToken(token);
+        setAuthUser(user);
+    };
+
+    const onLogout = () => {
+        setAuthToken(null);
+        setAuthUser(null);
+        localStorage.removeItem('tt_token');
     };
 
     const restartGame = useCallback(() => {
@@ -303,6 +335,10 @@ function App() {
           ]
         : [];
 
+    if (!authToken) {
+        return <Login onAuth={onAuth} />;
+    }
+
     return (
         // Apply theme background classes here
         <div className={`min-h-screen font-sans ${theme.bg} ${theme.text} p-6 md:p-10`}>
@@ -311,12 +347,17 @@ function App() {
                     <h1 className={`text-5xl font-extrabold tracking-widest uppercase ${theme.titleGlow}`}>
                         <span className={`text-${theme.primary}-500 drop-shadow-neon-${theme.primary} mr-2`}>C H E S S</span> T R A C K E R
                     </h1>
-                    <button
-                        onClick={toggleTheme}
-                        className={`px-4 py-2 bg-gray-800/70 text-${theme.accent}-400 font-bold rounded-full transition duration-300 border-2 border-${theme.accent}-500 hover:scale-[1.05] shadow-lg shadow-${theme.accent}-900/50`}
-                    >
-                        {theme.name}
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={toggleTheme}
+                            className={`px-4 py-2 bg-gray-800/70 text-${theme.accent}-400 font-bold rounded-full transition duration-300 border-2 border-${theme.accent}-500 hover:scale-[1.05] shadow-lg shadow-${theme.accent}-900/50`}
+                        >
+                            {theme.name}
+                        </button>
+                        {authToken && (
+                            <button onClick={() => setPage('player')} className="px-3 py-2 bg-blue-600 text-white rounded">My Dashboard</button>
+                        )}
+                    </div>
                 </div>
 
                 {/* Navigation Tabs - Flat, high-contrast pills */}
@@ -420,6 +461,10 @@ function App() {
                     restartGame={restartGame} 
                     theme={theme}
                 />
+            )}
+
+            {page === 'player' && authToken && (
+                <PlayerDashboard token={authToken} onLogout={onLogout} />
             )}
             
             {/* System Status Footer (New Component) */}
