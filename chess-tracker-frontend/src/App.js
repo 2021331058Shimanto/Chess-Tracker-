@@ -5,6 +5,7 @@ import { Chess } from "chess.js";
 import axios from 'axios'; // <-- AXIOS IMPORTED
 import Login from './Login';
 import PlayerDashboard from './PlayerDashboard';
+import PlayModeEnhanced from './PlayModeEnhanced';
 
 // --- THEME DEFINITIONS ---
 const THEMES = {
@@ -455,12 +456,7 @@ function App() {
             )}
 
             {page === "play" && (
-                <ChessGame 
-                    fen={fen} 
-                    safeGameMutate={safeGameMutate} 
-                    restartGame={restartGame} 
-                    theme={theme}
-                />
+                <PlayModeEnhanced token={authToken} currentTheme={currentTheme} />
             )}
 
             {page === 'player' && authToken && (

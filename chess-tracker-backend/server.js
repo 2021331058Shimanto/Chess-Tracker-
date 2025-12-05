@@ -151,6 +151,54 @@ app.get("/api/auth/me", authMiddleware, (req, res) => {
   res.json({ username: user.username, name: user.name, createdAt: user.createdAt });
 });
 
+// --- GAME RECORDS ENDPOINTS ---
+const GAMES_FILE = path.join(process.cwd(), "chess-tracker-backend", "games.json");
+
+function readGames() {
+  try {
+    if (!fs.existsSync(GAMES_FILE)) {
+      fs.writeFileSync(GAMES_FILE, "[]", "utf8");
+    }
+    const raw = fs.readFileSync(GAMES_FILE, "utf8");
+    return JSON.parse(raw || "[]");
+  } catch (e) {
+    return [];
+  }
+}
+
+function writeGames(games) {
+  const dir = path.dirname(GAMES_FILE);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(GAMES_FILE, JSON.stringify(games, null, 2));
+}
+
+// Save a game/moves for the authenticated user
+app.post("/api/games/save", authMiddleware, (req, res) => {
+  const { chesscomUsername, moves, fen, result } = req.body;
+  if (!chesscomUsername) return res.status(400).json({ message: "chesscomUsername required" });
+  
+  const games = readGames();
+  const gameRecord = {
+    id: Date.now(),
+    username: req.user.username,
+    chesscomUsername,
+    moves,
+    fen,
+    result: result || "in-progress",
+    createdAt: Date.now(),
+  };
+  games.push(gameRecord);
+  writeGames(games);
+  res.json({ message: "Game saved", gameRecord });
+});
+
+// Get all games for the authenticated user
+app.get("/api/games/my-games", authMiddleware, (req, res) => {
+  const games = readGames();
+  const userGames = games.filter(g => g.username === req.user.username);
+  res.json(userGames);
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
