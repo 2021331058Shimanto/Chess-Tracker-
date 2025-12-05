@@ -2,11 +2,11 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ResponsiveContainer } from "recharts";
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
-import axios from 'axios'; // <-- AXIOS IMPORTED
+import axios from 'axios'; 
 import Login from './Login';
 import PlayerDashboard from './PlayerDashboard';
 
-// --- THEME DEFINITIONS ---
+
 const THEMES = {
     vaporwave: {
         name: 'Vaporwave 🌃',
@@ -30,7 +30,7 @@ const THEMES = {
     },
 };
 
-// --- INITIAL DUMMY/MOCK DATA (Used for initial state before fetch) ---
+
 const INITIAL_PROFILE = { username: "Enter-ID", name: "Player Profile", location: "Unknown", joined: Date.now(), avatar: 'N/A', currentRating: 1200 }; 
 const INITIAL_STATS = {
     chess_blitz: { last: { rating: 1200 } },
@@ -39,7 +39,7 @@ const INITIAL_STATS = {
     wins: 0, losses: 0, draws: 0
 };
 const INITIAL_GAMES = [];
-// --- END INITIAL DATA ---
+
 
 // Animated Avatar/Badge Component
 const PlayerBadge = ({ username, rating, color = 'pink', theme }) => (
@@ -52,7 +52,7 @@ const PlayerBadge = ({ username, rating, color = 'pink', theme }) => (
     </div>
 );
 
-// New: Elo Change Preview
+// Elo Change Preview
 const EloPreview = ({ moveCount, rating, theme }) => {
     const change = moveCount > 10 ? '+8' : moveCount > 5 ? '+4' : '±0';
     const color = change.includes('+') ? 'text-green-400 drop-shadow-neon-green' : 'text-gray-400';
@@ -68,7 +68,7 @@ const EloPreview = ({ moveCount, rating, theme }) => {
     );
 };
 
-// Helper function to determine the current state of the game
+//Helper function to determine the current state of the game
 const getGameStatus = (fen, theme) => {
     const game = new Chess(fen);
     
@@ -340,7 +340,7 @@ function App() {
     }
 
     return (
-        // Apply theme background classes here
+        // apply theme background classes here
         <div className={`min-h-screen font-sans ${theme.bg} ${theme.text} p-6 md:p-10`}>
             <header className="max-w-7xl mx-auto mb-10">
                 <div className="flex justify-between items-center pb-3 border-b-4 border-purple-500/50">
@@ -477,7 +477,7 @@ function App() {
     );
 }
 
-// Reusable Components (Unchanged)
+// reusable Components 
 const StatCard = ({ title, value, icon, color = 'text-white' }) => (
     <div className="neo-flat-card p-5 text-center transition duration-500 hover:scale-[1.05] shadow-md shadow-purple-900/50">
         <div className={`text-4xl mb-2 ${color}`}>{icon}</div>
@@ -523,7 +523,7 @@ const LiveGameFeed = ({ games, theme }) => (
         </h3>
         <ul className="divide-y divide-gray-800">
             {games.slice(0, 5).map((gameItem, index) => {
-                // Determine result color based on the result property provided by your backend
+                
                 const resultColor = 
                     gameItem.result?.toLowerCase().includes('win') ? 'bg-green-600/30 text-green-400' : 
                     gameItem.result?.toLowerCase().includes('draw') ? 'bg-yellow-600/30 text-yellow-400' : 
