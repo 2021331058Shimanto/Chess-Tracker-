@@ -2,7 +2,7 @@
 @tailwind components ;
 @tailwind utilities;
 
-/* Custom Tailwind utility classes for neon glows */
+
 @layer utilities {
   .drop-shadow-neon-pink {
     filter: drop-shadow(0 0 2px #ec4899) drop-shadow(0 0 5px #f472b6);
@@ -23,12 +23,12 @@
     text-shadow: 0 0 8px #a855f7, 0 0 15px #ec4899;
   }
   .shadow-holographic {
-      /* Multi-color shadow for the holo effect */
+     
       box-shadow: 0 0 15px rgba(255, 0, 255, 0.6), 0 0 30px rgba(0, 255, 255, 0.4);
   }
 }
 
-/* Base styles for a Gen Z/Vaporwave aesthetic */
+
 body {
   margin: 0;
   font-family: 'Roboto', 'Ubuntu', 'Consolas', sans-serif;
@@ -40,7 +40,7 @@ code {
   font-family: 'Consolas', monospace;
 }
 
-/* 1. Flat, High-Contrast Cards (Neo-Flat) */
+
 .neo-flat-card {
   background-color: #1f1f3a; /* Deep blue/purple tone */
   border-radius: 1rem;
@@ -84,7 +84,7 @@ code {
 }
 
 .button-glitch:hover::before, .card-glitch:hover::before {
-    content: attr(data-text); /* Fallback for button text */
+    content: attr(data-text); 
     position: absolute;
     top: 0;
     left: 0;
@@ -101,11 +101,11 @@ code {
     0% { clip: rect(10px, 350px, 20px, 0); transform: skew(0.5deg); }
     10% { clip: rect(70px, 350px, 80px, 0); transform: skew(0.2deg); }
     20% { clip: rect(100px, 350px, 110px, 0); transform: skew(-0.5deg); }
-    /* ... more frames for realistic glitch ... */
+    
     100% { clip: rect(20px, 350px, 30px, 0); transform: skew(-0.1deg); }
 }
 
-/* 4. Score Indicator (Vaporwave Progress Bar) */
+
 .score-bar-genz {
   height: 15px;
   border-radius: 5px;
@@ -115,13 +115,13 @@ code {
 }
 
 .score-bar-genz .win-segment {
-  background-color: #4ade80; /* Green */
+  background-color: #4ade80; 
 }
 .score-bar-genz .loss-segment {
-  background-color: #ff3366; /* Pink-Red */
+  background-color: #ff3366; 
 }
 .score-bar-genz .draw-segment {
-  background-color: #fbd38d; /* Muted Yellow */
+  background-color: #fbd38d; 
 }
 
 /* 5. Status Bar animation */
@@ -145,7 +145,7 @@ code {
     100% { box-shadow: 0 0 15px #f472b6; }
 }
 
-/* Optional: Scrollbar */
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px; 
@@ -154,9 +154,9 @@ code {
   background: #111827;
 }
 ::-webkit-scrollbar-thumb {
-  background: #5b21b6; /* Deep Purple */
+  background: #5b21b6; 
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #9333ea; /* Brighter Purple */
+  background: #9333ea;
 }
